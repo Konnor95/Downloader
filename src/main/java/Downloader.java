@@ -79,7 +79,6 @@ public class Downloader {
         if (downloadedResources.contains(link))
             return;
         downloadedResources.add(link);
-
         try {
             URL url = new URL(link);
             FileUtils.copyURLToFile(url, new File(outputDirectory + url.getFile()));
