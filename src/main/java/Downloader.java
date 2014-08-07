@@ -1,4 +1,5 @@
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.IOUtils;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -10,6 +11,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 
 public class Downloader {
 
@@ -40,8 +44,8 @@ public class Downloader {
             return;
         }
         GetResources("link", "href");
-        GetResources("script", "src");
-        GetResources("img", "src");
+        /*GetResources("script", "src");
+        GetResources("img", "src");*/
         LoadPage();
     }
 
@@ -74,7 +78,7 @@ public class Downloader {
         }
     }
 
-    private void DownloadFileFromUrl(String link) {
+    public void DownloadFileFromUrl(String link) {
         link = optimizeUrl(link);
         if (downloadedResources.contains(link))
             return;
@@ -82,11 +86,41 @@ public class Downloader {
         try {
             URL url = new URL(link);
             FileUtils.copyURLToFile(url, new File(outputDirectory + url.getFile()));
+            //Downloading images from css
+            if (url.getFile().endsWith(".css")) {
+                DownloadFilesFromCSS(url);
+            }
             printMessage("File downloaded: " + link);
         } catch (MalformedURLException e) {
-            e.printStackTrace();
+            printMessage("Invalid url");
         } catch (IOException e) {
             printMessage("File is not a valid resource: " + link);
+        }
+    }
+
+    private void DownloadFilesFromCSS(URL url) {
+        Pattern p = Pattern.compile("url\\(\\s*(['\"]?+)(.*?)\\1\\s*\\)");
+        Matcher m;
+        try {
+            m = p.matcher(IOUtils.toString(url.openStream()));
+        } catch (IOException e) {
+            printMessage("Error reading CSS file");
+            return;
+        }
+        while (m.find()) {
+            String group = m.group();
+            int i = group.indexOf('\'');
+            group = group.substring((i == -1 ? group.indexOf('(') : i) + 1);//removing left part
+            i = group.indexOf('\'');
+            group = group.substring(0, (i == -1 ? group.indexOf(')') : i));//removing right part
+            URL mergedURL;
+            try {
+                mergedURL = new URL(url, group);
+            } catch (MalformedURLException e) {
+                printMessage("Error merging urls");
+                return;
+            }
+            DownloadFileFromUrl(mergedURL.toString());
         }
     }
 
@@ -109,9 +143,9 @@ public class Downloader {
         System.out.println(s);
     }
 
-    public void getOtherLinks(){
+    public void getOtherLinks() {
         printMessage("Other links: ");
-        for(String s:otherLinks){
+        for (String s : otherLinks) {
             printMessage(s);
         }
     }
