@@ -44,8 +44,8 @@ public class Downloader {
             return;
         }
         GetResources("link", "href");
-        /*GetResources("script", "src");
-        GetResources("img", "src");*/
+        GetResources("script", "src");
+        GetResources("img", "src");
         LoadPage();
     }
 
