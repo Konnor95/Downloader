@@ -24,6 +24,7 @@ public class Downloader {
 
     private static Set<String> downloadedPages = new HashSet<>();
     private static Set<String> downloadedResources = new HashSet<>();
+    private static Set<String> invalidLinks = new HashSet<>();
     private static Set<String> otherLinks = new HashSet<>();
 
     public Downloader(String baseUrl, String file, String outputDirectory) {
@@ -67,11 +68,11 @@ public class Downloader {
             return;
         for (Element element : elements) {
             String link = optimizeUrl(element.attr("href"));
-            if (!link.startsWith(baseUrl)) {
+            if (!link.startsWith(baseUrl) || invalidLinks.contains(link)) {
                 otherLinks.add(link);
                 continue;
             }
-            if (!link.contains("#") && !downloadedPages.contains(link)) {
+            if (!link.endsWith("#") && !downloadedPages.contains(link)) {
                 Downloader d = new Downloader(baseUrl, link.substring(baseUrl.length()), outputDirectory);
                 d.Download();
             }
@@ -80,7 +81,7 @@ public class Downloader {
 
     public void DownloadFileFromUrl(String link) {
         link = optimizeUrl(link);
-        if (downloadedResources.contains(link))
+        if (downloadedResources.contains(link) || invalidLinks.contains(link))
             return;
         downloadedResources.add(link);
         try {
@@ -93,8 +94,10 @@ public class Downloader {
             printMessage("File downloaded: " + link);
         } catch (MalformedURLException e) {
             printMessage("Invalid url");
+            invalidLinks.add(link);
         } catch (IOException e) {
             printMessage("File is not a valid resource: " + link);
+            invalidLinks.add(link);
         }
     }
 
@@ -109,15 +112,15 @@ public class Downloader {
         }
         while (m.find()) {
             String group = m.group();
-            int i = group.indexOf('\'');
+            int i = group.indexOf('\'') == -1 ? group.indexOf('"') : group.indexOf('\'');
             group = group.substring((i == -1 ? group.indexOf('(') : i) + 1);//removing left part
-            i = group.indexOf('\'');
+            i = group.indexOf('\'') == -1 ? group.indexOf('"') : group.indexOf('\'');
             group = group.substring(0, (i == -1 ? group.indexOf(')') : i));//removing right part
             URL mergedURL;
             try {
                 mergedURL = new URL(url, group);
             } catch (MalformedURLException e) {
-                printMessage("Error merging urls");
+                printMessage("Error merging urls: " + url + " and: " + group);
                 return;
             }
             DownloadFileFromUrl(mergedURL.toString());
@@ -135,6 +138,15 @@ public class Downloader {
         }
         if (!url.startsWith("http")) {
             url = baseUrl + url;
+        }
+        if (url.endsWith(".")) {
+            url = url.substring(0, url.length() - 2);
+        }
+        if (url.contains("?")) {
+            url = url.split("\\?")[0];
+        }
+        if (url.endsWith("/")) {
+            url = url + "index.html";
         }
         return url;
     }
